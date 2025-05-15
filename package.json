@@ -1,5 +1,5 @@
 {
-  "name": "btc-eth-alert-bot-api",
+  "name": "btc-eth-alert-bot-fixed",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {

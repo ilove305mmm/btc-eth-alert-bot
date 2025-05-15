@@ -1,11 +1,13 @@
 
 const fetch = require('node-fetch');
+const crypto = require('crypto');
 
 const API_KEY = "oirwhz4LaZrywBWgPy";
 const API_SECRET = "KtAfP2XkAVh4es5yRZ2CMFB16hXG5Ya01DX";
-const crypto = require('crypto');
 
-const getTimestamp = () => Date.now().toString();
+function getTimestamp() {
+    return Date.now().toString();
+}
 
 function signRequest(params, secret) {
     const orderedParams = Object.keys(params).sort().map(k => k + '=' + params[k]).join('&');
@@ -13,16 +15,16 @@ function signRequest(params, secret) {
 }
 
 async function getOpenInterest(symbol = "BTCUSDT") {
-    const url = "https://api.bybit.com/v5/market/open-interest";
+    const baseUrl = "https://api.bybit.com/v5/market/open-interest";
     const params = {
         category: "linear",
-        symbol,
-        intervalTime: 5,
+        symbol: symbol,
+        intervalTime: "5"
     };
-
     const timestamp = getTimestamp();
-    const queryString = new URLSearchParams(params).toString();
+    const query = new URLSearchParams(params).toString();
     const signature = signRequest({ ...params, timestamp }, API_SECRET);
+
     const headers = {
         "X-BAPI-API-KEY": API_KEY,
         "X-BAPI-TIMESTAMP": timestamp,
@@ -30,16 +32,20 @@ async function getOpenInterest(symbol = "BTCUSDT") {
     };
 
     try {
-        const res = await fetch(`${url}?${queryString}`, { headers });
-        const json = await res.json();
-        console.log("📈 Open Interest:", json?.result?.list?.[0]);
+        const response = await fetch(`${baseUrl}?${query}`, { method: "GET", headers });
+        const text = await response.text();
+        try {
+            const json = JSON.parse(text);
+            console.log("✅ Open Interest:", json?.result?.list?.[0]);
+        } catch (e) {
+            console.error("⚠️ Unexpected response (not JSON):", text);
+        }
     } catch (err) {
-        console.error("❌ Failed to fetch Open Interest", err);
+        console.error("❌ Fetch error:", err.message);
     }
 }
 
-// Main loop
 setInterval(() => {
-    console.log("🌀 Fetching market data...");
+    console.log("🔄 Fetching market data...");
     getOpenInterest();
 }, 5000);
