@@ -9,8 +9,8 @@ def analyze_symbol(symbol):
     if detect_volume_spike(volumes):
         messages.append(f"📈 {symbol}: 異常成交量突破 20 根綠K！可能為主力行動前兆。")
     if detect_cvd_reversal(cvds):
-        messages.append(f"🔄 {symbol}: CVD 出現方向翻轉，可能出現多空轉換！")
+        messages.append(f"🔄 {symbol}: CVD 出現方向翻轉，可能多空轉折！")
     if detect_real_breakout(volumes, cvds):
-        messages.append(f"🚀 {symbol}: 符合突破條件，疑似真實突破訊號！")
+        messages.append(f"🚀 {symbol}: 滿足真實突破條件，可能是機構推動！")
 
     return messages
