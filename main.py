@@ -19,7 +19,7 @@ def send_telegram(message):
         print("Telegram Error:", str(e))
 
 def main():
-    send_telegram("✅ V2 版本上線：開始執行三大訊號監控。")
+    send_telegram("✅ V3 版本啟動：多訊號監控 BTC/ETH（爆倉、VWAP、OI）")
     while True:
         print(f"[{datetime.now()}] Running analysis...")
         for symbol in ["BTCUSDT", "ETHUSDT"]:
