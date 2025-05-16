@@ -1,6 +1,5 @@
-import requests
-
 def get_kline(symbol="BTCUSDT", limit=20):
+    import requests
     url = "https://api.bybit.com/v5/market/kline"
     params = {
         "category": "linear",
