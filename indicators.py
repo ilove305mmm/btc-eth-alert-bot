@@ -1,7 +1,6 @@
-import time
+import requests
 
 def get_kline(symbol="BTCUSDT", limit=20):
-    import requests
     url = "https://api.bybit.com/v5/market/kline"
     params = {
         "category": "linear",
@@ -18,16 +17,22 @@ def get_kline(symbol="BTCUSDT", limit=20):
         return []
 
 def get_volume_list(kline):
-    return [float(candle[5]) for candle in kline]
+    return [float(c[5]) for c in kline]
 
-def get_cvd_list(kline):
-    return [float(candle[1]) - float(candle[4]) for candle in kline]  # open - close
+def get_price_list(kline):
+    return [float(c[4]) for c in kline]
 
-def get_price_volume(kline):
-    return [(float(candle[4]), float(candle[5])) for candle in kline]  # close, volume
+def detect_volume_anomaly(volume_list):
+    if len(volume_list) < 2:
+        return False
+    current = volume_list[-1]
+    greens = [v for i, v in enumerate(volume_list[:-1]) if volume_list[i] > volume_list[i-1]]
+    if not greens:
+        return False
+    avg = sum(greens) / len(greens)
+    return current > avg
 
 def get_open_interest(symbol="BTCUSDT"):
-    import requests
     url = "https://api.bybit.com/v5/market/open-interest"
     params = {
         "category": "linear",
@@ -37,13 +42,20 @@ def get_open_interest(symbol="BTCUSDT"):
     try:
         response = requests.get(url, params=params)
         data = response.json()
-        return [float(item["openInterest"]) for item in data["result"]["list"]]
+        return [float(i["openInterest"]) for i in data["result"]["list"]]
     except Exception as e:
         print("OI error:", str(e))
         return []
 
+def detect_oi_surge(oi_list):
+    if len(oi_list) < 2:
+        return False
+    current = oi_list[-1]
+    avg = sum(oi_list[:-1]) / len(oi_list[:-1])
+    return current > avg * 1.5
+
+liq_history = {}
 def get_liquidation(symbol="BTCUSDT"):
-    import requests
     url = "https://api.bybit.com/v5/market/liquidation"
     params = {
         "category": "linear",
@@ -58,40 +70,33 @@ def get_liquidation(symbol="BTCUSDT"):
         print("Liquidation error:", str(e))
         return 0
 
-def detect_volume_spike(volume_list):
-    if len(volume_list) < 2:
+def detect_liquidation_spike(symbol, liq):
+    global liq_history
+    if symbol not in liq_history:
+        liq_history[symbol] = []
+    liq_history[symbol].append(liq)
+    if len(liq_history[symbol]) > 10:
+        liq_history[symbol].pop(0)
+    if len(liq_history[symbol]) < 5:
         return False
-    current = volume_list[-1]
-    past_greens = [v for i, v in enumerate(volume_list[:-1]) if i == 0 or volume_list[i] > volume_list[i-1]]
-    return current > max(past_greens) if past_greens else False
+    avg = sum(liq_history[symbol]) / len(liq_history[symbol])
+    return liq > avg * 2.5
 
-def detect_cvd_reversal(cvd_list):
-    if len(cvd_list) < 2:
+def detect_delta_volume_breakout(kline):
+    deltas = [float(c[4]) - float(c[1]) for c in kline]  # close - open
+    return deltas[-1] > 0 and deltas[-1] > sum(deltas[-5:-1]) / 4
+
+def detect_price_volume_oi_sync(kline, oi_list):
+    if len(kline) < 2 or len(oi_list) < 2:
         return False
-    return cvd_list[-1] * cvd_list[-2] < 0
+    return (
+        float(kline[-1][4]) > float(kline[-2][4]) and
+        float(kline[-1][5]) > float(kline[-2][5]) and
+        oi_list[-1] > oi_list[-2]
+    )
 
-def detect_real_breakout(volume_list, cvd_list):
-    return volume_list[-1] > sum(volume_list[:-1]) / len(volume_list[:-1]) and cvd_list[-1] > 0
-
-def detect_liquidation_spike(liq, liq_history):
-    if not liq_history:
-        return False
-    avg_liq = sum(liq_history) / len(liq_history)
-    return liq > avg_liq * 2.5
-
-def detect_vwap_deviation(price_volume):
-    import statistics
-    if len(price_volume) < 5:
-        return False
-    prices, volumes = zip(*price_volume)
-    vwap = sum(p * v for p, v in price_volume) / sum(volumes)
-    std = statistics.stdev(prices)
-    last_price = prices[-1]
-    return abs(last_price - vwap) > std * 1.5
-
-def detect_oi_surge(oi_list):
-    if len(oi_list) < 2:
-        return False
-    current = oi_list[-1]
-    avg = sum(oi_list[:-1]) / len(oi_list[:-1])
-    return current > avg * 1.5
+def detect_depth_absorption_mock(kline):
+    last = kline[-1]
+    open_price = float(last[1])
+    close_price = float(last[4])
+    return close_price - open_price > abs(open_price * 0.002)

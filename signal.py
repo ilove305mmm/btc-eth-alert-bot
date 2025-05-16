@@ -1,38 +1,29 @@
 from indicators import (
-    get_kline, get_volume_list, get_cvd_list, get_open_interest,
-    get_price_volume, get_liquidation,
-    detect_volume_spike, detect_cvd_reversal, detect_real_breakout,
-    detect_liquidation_spike, detect_vwap_deviation, detect_oi_surge
+    get_kline, get_volume_list, get_price_list,
+    detect_volume_anomaly, get_open_interest, detect_oi_surge,
+    get_liquidation, detect_liquidation_spike,
+    detect_delta_volume_breakout, detect_price_volume_oi_sync, detect_depth_absorption_mock
 )
-
-liq_history = {}
 
 def analyze_symbol(symbol):
     kline = get_kline(symbol)
     volumes = get_volume_list(kline)
-    cvds = get_cvd_list(kline)
-    pv = get_price_volume(kline)
+    prices = get_price_list(kline)
     oi_list = get_open_interest(symbol)
     liq = get_liquidation(symbol)
 
-    # Maintain liquidation history
-    if symbol not in liq_history:
-        liq_history[symbol] = []
-    liq_history[symbol].append(liq)
-    if len(liq_history[symbol]) > 10:
-        liq_history[symbol].pop(0)
-
-    messages = []
-    if detect_volume_spike(volumes):
-        messages.append(f"📈 {symbol}: 異常成交量突破 20 根綠K！")
-    if detect_cvd_reversal(cvds):
-        messages.append(f"🔄 {symbol}: CVD 出現方向翻轉，可能轉折！")
-    if detect_real_breakout(volumes, cvds):
-        messages.append(f"🚀 {symbol}: 滿足真實突破條件，疑似主力推動！")
-    if detect_liquidation_spike(liq, liq_history[symbol]):
-        messages.append(f"💥 {symbol}: 爆倉激增，可能是清洗或逼倉操作！")
-    if detect_vwap_deviation(pv):
-        messages.append(f"⚠️ {symbol}: 價格大幅偏離 VWAP，注意回歸風險！")
+    # 優先順序：真實突破 > 爆倉 > OI > 成交量 > Delta Volume > 掃單
+    if detect_price_volume_oi_sync(kline, oi_list):
+        return [f"🚀 {symbol}: 價格 + OI + 成交量齊升，疑似真實突破！"]
+    if detect_liquidation_spike(symbol, liq):
+        return [f"💥 {symbol}: 爆倉量激增，可能洗盤或踩踏！"]
     if detect_oi_surge(oi_list):
-        messages.append(f"📊 {symbol}: OI 激增，可能有新大單或佈局！")
-    return messages
+        return [f"📊 {symbol}: OI 激增，可能佈局新倉！"]
+    if detect_volume_anomaly(volumes):
+        return [f"📈 {symbol}: 異常成交量突破綠K平均！"]
+    if detect_delta_volume_breakout(kline):
+        return [f"🔄 {symbol}: 主動買單強勢累積，主力吸籌可能啟動！"]
+    if detect_depth_absorption_mock(kline):
+        return [f"🧱 {symbol}: 掃單打穿上方掛單牆，疑似主力突破！"]
+
+    return []

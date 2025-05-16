@@ -13,13 +13,12 @@ def send_telegram(message):
         "text": message
     }
     try:
-        response = requests.post(url, data=data)
-        print("Sent:", message)
+        requests.post(url, data=data)
     except Exception as e:
         print("Telegram Error:", str(e))
 
 def main():
-    send_telegram("✅ V3 版本啟動：多訊號監控 BTC/ETH（爆倉、VWAP、OI）")
+    send_telegram("✅ V4 主力監控版已啟動！")
     while True:
         print(f"[{datetime.now()}] Running analysis...")
         for symbol in ["BTCUSDT", "ETHUSDT"]:
